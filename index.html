@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Görsel Oluşturucu</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom CSS for Inter font and general styling */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Hafif gri arka plan */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .title {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #1f2937; /* Koyu gri metin */
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db; /* Açık gri kenarlık */
+            border-radius: 8px;
+            font-size: 1rem;
+            resize: vertical; /* Dikey yeniden boyutlandırmaya izin ver */
+            min-height: 100px;
+            box-sizing: border-box; /* Padding ve border'ı genişliğe dahil et */
+        }
+        button {
+            background-color: #2563eb; /* Mavi düğme */
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            border: none; /* Kenarlığı kaldır */
+        }
+        button:hover {
+            background-color: #1d4ed8; /* Koyu mavi hover */
+        }
+        .loading-text {
+            font-size: 1.1rem;
+            color: #4b5563; /* Orta gri metin */
+            margin-top: 10px;
+        }
+        #generatedImage {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">Görsel Oluşturucu</h1>
+
+        <div class="input-group">
+            <label for="promptInput" class="text-gray-700 text-lg font-medium text-left">Görsel için açıklama girin:</label>
+            <textarea id="promptInput" placeholder="Örnek: 'Beyaz arka plan üzerinde siyah çizgilerle çizilmiş, güneş enerjisi sistemi şeması, Türkçe etiketli.'" rows="5"></textarea>
+        </div>
+
+        <button id="generateBtn">Görsel Oluştur</button>
+
+        <div id="loading" class="loading-text" style="display:none;">
+            Görsel oluşturuluyor... Lütfen bekleyin.
+        </div>
+
+        <img id="generatedImage" src="" alt="Oluşturulan Görsel" style="display:none;">
+    </div>
+
+    <script>
+        // Get references to HTML elements
+        const promptInput = document.getElementById('promptInput');
+        const generateBtn = document.getElementById('generateBtn');
+        const loadingDiv = document.getElementById('loading');
+        const generatedImage = document.getElementById('generatedImage');
+
+        // Event listener for the button click
+        generateBtn.addEventListener('click', generateImageFromPrompt);
+
+        async function generateImageFromPrompt() {
+            const userPrompt = promptInput.value.trim(); // Get user input and remove whitespace
+
+            if (!userPrompt) {
+                // Use a simple alert-like message in the UI instead of alert()
+                loadingDiv.style.display = 'block';
+                loadingDiv.style.color = 'red';
+                loadingDiv.innerText = 'Lütfen bir açıklama girin!';
+                generatedImage.style.display = 'none';
+                return;
+            }
+
+            // Show loading indicator and hide previous image
+            loadingDiv.style.display = 'block';
+            loadingDiv.style.color = '#4b5563'; // Reset color
+            loadingDiv.innerText = 'Görsel oluşturuluyor... Lütfen bekleyin.';
+            generatedImage.style.display = 'none';
+            generatedImage.src = ''; // Clear previous image source
+
+            // Imagen API configuration
+            const payload = { instances: { prompt: userPrompt }, parameters: { "sampleCount": 1 } };
+            const apiKey = ""; // Canvas environment will automatically provide the API key
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                // Check if image data is available in the response
+                if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
+                    const imageUrl = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+                    generatedImage.src = imageUrl;
+                    generatedImage.style.display = 'block'; // Show the image
+                    loadingDiv.style.display = 'none'; // Hide loading text
+                } else {
+                    // Handle cases where response structure is unexpected or content is missing
+                    loadingDiv.style.color = 'red';
+                    loadingDiv.innerText = 'Görsel oluşturulamadı. API yanıtı beklenmedik bir formatta.';
+                    console.error('Image generation failed: Unexpected API response', result);
+                }
+            } catch (error) {
+                // Handle network errors or other exceptions
+                loadingDiv.style.color = 'red';
+                loadingDiv.innerText = 'Görsel oluşturulurken bir hata oluştu. Lütfen ağ bağlantınızı kontrol edin veya daha sonra tekrar deneyin.';
+                console.error('Error during image generation:', error);
+            }
+        }
+    </script>
+</body>
+</html>
+
